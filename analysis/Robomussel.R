@@ -52,6 +52,7 @@ te.max= te.wa %>% group_by(date, site, subsite) %>% summarise(id1=id1[1], MaxTem
 day=  as.POSIXlt(te.max$date, format="%m/%d/%Y")
 te.max$doy=as.numeric(strftime(day, format = "%j"))
 te.max$year=as.numeric(strftime(day, format = "%Y"))
+te.max$month=as.numeric(strftime(day, format = "%m"))
 te.max$j=julian(day)
 
 #----------------------
@@ -147,83 +148,112 @@ ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_lin
 #===================================================
 #Quilt plot
 
+#mean daily maximum by month
+te.month = te.max %>% group_by(site, month) %>% summarise( max=max(MaxTemp_C), mean.max=mean(MaxTemp_C), q75= quantile(MaxTemp_C, 0.75), q95= quantile(MaxTemp_C, 0.95) ) 
 
-#shifts in temp and phenology
-fld <- with(phen.slopes, interp(x = phen.m*10, y = dtemp.m*10, z = ngen.m*10, duplicate=TRUE))
-
-gdat <- interp2xyz(fld, data.frame=TRUE)
-
-p3d= ggplot(gdat) + 
-  aes(x = x, y = y, z = z, fill = z) + 
+ggplot(te.month) + 
+  aes(x = month, y = site, z = mean.max, fill = mean.max) + 
   geom_tile() + 
   coord_equal() +
-  geom_contour(color = "white", alpha = 0.5) + 
-  scale_fill_distiller(palette="Spectral", na.value="white", name="number generations\n (1/decade)") + 
-  theme_bw(base_size = 18)+xlab("phenology (days/decade)")+ylab("temperature (°C/decade)")+ theme(legend.position="right")+ theme(legend.position="right")+ coord_fixed(ratio = 4)
-
-
-
+  scale_fill_distiller(palette="Spectral", na.value="white", name="temperature (°C)") + 
+  theme_bw(base_size = 18)+xlab("month")+ylab("site")+ theme(legend.position="right")+ theme(legend.position="right")+ coord_fixed(ratio = 4)
 
 #==================================================
 # EXTREMES
 
-#PTRS
-#Fig 5
+library(ismev) #for gev
+library(reshape)
+library(maptools) #for mapping
+library(evd) #for extremes value distributions
+library(extRemes)
+library(fExtremes) # generate gev
 
-#STORE TEMPERATURE DATA
-temp.dist.cut= dat[dat$Year %in% 1991:2013,"Tmax"]
-temp[stat.k,1,1:8]= c(mean(temp.dist.cut, na.rm=TRUE), sd(temp.dist.cut, na.rm=TRUE), median(temp.dist.cut, na.rm=TRUE), quantile(temp.dist.cut, probs=c(0.05, 0.95), na.rm=TRUE), range(dat[,"Year"]), length(unique(dat$Year)) )
+#From PTRS Fig 5
 
-#Generalized extreme value distribution
-dat1= na.omit(temp.dist.cut)
-try(mod.gev<- gev.fit(dat1, show=FALSE) ) #stationary
-if(class(mod.gev)!="try-error") temp[stat.k,1, 9]<-mod.gev$nllh
-if(class(mod.gev)!="try-error") temp[stat.k,1, 10:12]<-mod.gev$mle #add another for non-stat
-if(class(mod.gev)!="try-error") temp[stat.k,1, 14]<-mod.gev$conv #add another for non-stat
+sites= levels(te.max$site)
+subsites=  levels(te.max$subsite)
 
-#Generalized pareto distribution, for number of times exceeds threshold
-thresh= 35
-mod.gpd <-gpd.fit(dat1, thresh, npy=365) #stationary
-temp[stat.k,1, 15]<-mod.gpd$rate
+gev.out= array(NA, dim=c(length(sites),length(subsites),13 ) )
 
-#---------------------------------------
-temp.dist.cut= dat[dat$Year %in% 1962:1990,"Tmax"]
-temp.baseline[stat.k,1,1:8]= c(mean(temp.dist.cut, na.rm=TRUE), sd(temp.dist.cut, na.rm=TRUE), median(temp.dist.cut, na.rm=TRUE), quantile(temp.dist.cut, probs=c(0.05, 0.95), na.rm=TRUE), range(dat[,"Year"]), length(unique(dat$Year)) )
+for(site.k in 1:length(sites))
+{
+  te.dat= te.max[which(te.max$site==sites[site.k]),]
+  subsites1= levels(te.dat$subsite)
+  
+  for(subsite.k in  1:length(subsites)) {
+    te.dat1= te.dat[which(te.dat$subsite==subsites1[subsite.k]),]
+    
+    #Generalized extreme value distribution
+      dat1= na.omit(te.dat1$MaxTemp_C)  ##CHECK na.omit appropraite?
+      
+    if(length(dat1)>365){
+        
+    try(mod.gev<- gev.fit(dat1, show=FALSE) ) #stationary
+    if(class(mod.gev)!="try-error") gev.out[site.k, subsite.k,1]<-mod.gev$nllh
+    if(class(mod.gev)!="try-error") gev.out[site.k, subsite.k,2:4]<-mod.gev$mle #add another for non-stat
+    if(class(mod.gev)!="try-error") gev.out[site.k, subsite.k,5]<-mod.gev$conv #add another for non-stat
+    
+    #Generalized pareto distribution, for number of times exceeds threshold
+    thresh= 35
+    
+    #stationary
+    try(mod.gpd <-gpd.fit(dat1, thresh, npy=365)) #stationary 
+    if(class(mod.gpd)!="try-error") gev.out[site.k, subsite.k,6]<-mod.gpd$rate
+    
+   ## nonstationary 
+   # try(mod.gpd<-gpd.fit(dat1, 40, npy=92, ydat=as.matrix(te.dat1$year), sigl=1),silent = FALSE) 
+    
+    #RETURN LEVELS:  MLE Fitting of GPD - package extRemes
+    mpers= c(10,20,50,100)
+    for(m in 1:length(mpers)){
+      try( pot.day<- fpot(dat1, threshold=35, npp=365.25, mper=mpers[m], std.err = FALSE) )
+    
+      if(class(pot.day)!="try-error") gev.out[site.k, subsite.k,6+m]=pot.day$estimate[1]
+    }
+    
+    #proportion above threshold
+    if(class(pot.day)!="try-error") gev.out[site.k, subsite.k,13]=pot.day$pat
+    
+    } #end check time series
+  } #end subsites
+} #end sites
 
-#Generalized extreme value distribution
-dat1= na.omit(temp.dist.cut)
-try(mod.gev<- gev.fit(dat1, show=FALSE) ) #stationary
-if(class(mod.gev)!="try-error") temp.baseline[stat.k,1, 9]<-mod.gev$nllh
-if(class(mod.gev)!="try-error") temp.baseline[stat.k,1, 10:12]<-mod.gev$mle #add another for non-stat
-if(class(mod.gev)!="try-error") temp.baseline[stat.k,1, 14]<-mod.gev$conv #add another for non-stat
+#-------------------------
+#PLOT
 
-#Generalized pareto distribution, for number of times exceeds threshold
-thresh= 40
-try(mod.gpd <-gpd.fit(dat1, thresh, npy=365) ) #stationary
-if(class(mod.gpd)!="try-error") temp.baseline[stat.k,1, 15]<-mod.gpd$rate
+#to long format crudely
+pow1= pow.out[1,,]
+pow1m= melt(pow1)
+pow1m$site= "CC"
 
-} #end loop station
+pow2= pow.out[2,,]
+pow2m= melt(pow2)
+pow2m$site= "CP"
 
-#=========================
-## PLOT TOGETHER
-setwd("C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\ExtremesPhilTrans\\figures\\")
+pow3= pow.out[3,,]
+pow3m= melt(pow3)
+pow3m$site= "LB"
 
-file<-paste("AustGEV.pdf" ,sep="", collapse=NULL)
-pdf(file,height = 8, width = 11)
+pow4= pow.out[4,,]
+pow4m= melt(pow4)
+pow4m$site= "SD"
+
+pow= rbind(pow1m, pow2m, pow3m, pow4m)
+colnames(pow)[1:3]=c("subsite","freq","cyc_range")
+
+
+
+#====================
+## PLOT
+
+#setwd("C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\ExtremesPhilTrans\\figures\\")
+
+#file<-paste("AustGEV.pdf" ,sep="", collapse=NULL)
+#pdf(file,height = 8, width = 11)
 
 sites=cbind(acorn,temp[,1,])
 colnames(sites)[18:24]= c("gev.nllh", "gev.loc", "gev.scale", "gev.shape", "gev.mle4", "conv", "rate")
 
-## PLOT SITE CLIMATE INFO
-par(mfrow=c(2,2), cex=1.4, mar=c(2, 3, 1, 1), mgp=c(2, 1, 0), oma=c(2,0,0,0), lwd=2)
-
-sites$st.lat= sites$Latitude
-sites.coast= sites[sites$cline=="Coast",]
-sites.cont= sites[sites$cline=="Cont",]
-
-sites.temps= sites[order(sites$Latitude),]
-temps.coast= sites.temps[sites.temps$cline=="Coast",]
-temps.cont= sites.temps[sites.temps$cline=="Cont",]
 
 #CLIMATE
 plot(temps.coast$Latitude, temps.coast$gev.loc, col="black", type="b", xlim= range(sites.temps$Latitude), ylim= range(sites$gev.loc), ylab="GEV location", xlab="Latitude (?S)" )
@@ -244,50 +274,6 @@ mtext("Latitude (?)", side=1, line = 0, cex=1.3, outer=TRUE)
 
 dev.off()
 
-#Fig 3
-
-#Return times
-
-dat0=dat[!is.na(dat$var),]
-dat1=dat0$var
-
-#Generalized extreme value distribution
-try(mod.gev<- gev.fit(dat1, show=FALSE) ) #stationary
-if(class(mod.gev)!="try-error") ns.ext.stat[stat.k, 1]<-mod.gev$nllh
-if(class(mod.gev)!="try-error") ns.ext.stat[stat.k, 2:4]<-mod.gev$mle #add another for non-stat
-if(class(mod.gev)!="try-error") ns.ext.stat[stat.k, 6]<-mod.gev$conv #add another for non-stat
-
-#Generalized pareto distribution, for number of times exceeds threshold
-#mod.gpd <-gpd.fit(Ta$value, 40, npy=92) #stationary
-## nonstationary 
-try(mod.gpd<-gpd.fit(dat1, 40, npy=92, ydat=as.matrix(dat0$year), sigl=1),silent = FALSE) 
-
-#RETURN LEVELS:  MLE Fitting of GPD - package extRemes
-thresh= quantile(dat.month$var, 0.9, na.rm=TRUE)
-mpers= c(2,5,10,20,50,100)
-for(m in 1:length(mpers)){
-  pot.day= fpot(dat0$var, threshold=30, npp=365.25, mper=mpers[m] )
-  pot.week= fpot(dat.week, threshold=30, npp=365.25, mper=mpers[m] )
-  if(m>4)pot.month= fpot(dat.month$var, threshold=30, npp=3, mper=mpers[m] )
-  
-  rl[stat.k, m, 1]=pot.day$estimate[1]
-  rl[stat.k, m, 2]=pot.week$estimate[1]
-  if(m>4)rl[stat.k, m, 3]=pot.month$estimate[1]
-}
-rl[stat.k, 7, 1]=pot.day$pat
-rl[stat.k, 7, 2]=pot.week$pat
-rl[stat.k, 7, 3]=pot.month$pat
-
-#PLOT RETURN LEVELS
-rp= c(2,5,10,20,50,100)
-
-for(k in 1:2){
-  labs= "Temperature (?C)"
-  
-  plot(rp, rl[k, 1:6, 1], type="l", ylim=range(na.omit(rl[k,1:6,])), col=cols[1], ylab=labs, xlab="Return Period (years)", main="", xlim=c(0,80))
-  points(rp, rl[k, 1:6, 2], type="l", col=cols[2] )
-  points(rp[4:6], rl[k, 4:6, 3], type="l", col=cols[3] )
-}
 
 
 
