@@ -70,7 +70,7 @@ te.sh <- do.call(rbind,lapply(file_names,my.read.table))
 te.or= rbind(te.bb, te.sh)
 
 #---
-#CA
+#CA 
 
 #HS
 setwd("C:\\Users\\lbuckley\\Documents\\ClimateBiology\\data\\robomussel\\CA (California)\\HS (Hopkins)\\")
@@ -148,6 +148,11 @@ te.max$zone= site.dat$zone[match1]
 te.max$tidal.height..m.= site.dat$tidal.height..m.[match1]
 te.max$substrate= site.dat$substrate[match1]
 
+#SAVE
+setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\ICBClimBio\\")
+saveRDS(te.max, "tedat.rds")
+te.max <- readRDS("tedat.rds")
+
 #----------------------
 #PLOTS
 
@@ -158,14 +163,37 @@ te.max$substrate= site.dat$substrate[match1]
 te.count = te.max %>% group_by(year,site, subsite) %>% summarise( count=length(MaxTemp_C)  )
 te.count= as.data.frame(te.count)
 
-#time series
-te.max1= subset(te.max, te.max$year==2002)
-ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line() +theme_bw()+facet_wrap(~site)
-#by tidal height
-ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=height ))+geom_line() +theme_bw()+facet_wrap(~site)
-#by lat
-ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line() +theme_bw()+facet_wrap(~lat)
+#subset sites
+te.max2= subset(te.max, te.max$site %in% c("SD","BB","PD") ) # "HS",
+#te.max2= subset(te.max, te.max$lat %in% c(48.39137,44.83064,35.66582,34.46717) )
 
+# USWACC	48.5494	-123.0059667	Colins Cove
+# USWACP	48.45135	-122.9617833	Cattle Point
+#* USWASD	48.39136667	-124.7383667	Strawberry Point
+
+#* USORBB	44.83064	-124.06005	Boiler Bay
+
+#* USCAPD	35.66581667	-121.2867167	Piedras
+# USCAAG	34.46716667	-120.2770333	Alegria
+
+
+#time series
+te.max1= subset(te.max2, te.max2$year==2002)
+
+#restrict to summer
+#May 1 through September: 121:273 
+te.max1= subset(te.max1, te.max1$doy>120 & te.max1$doy<274)
+
+#Get rid of duplicate CP in WA
+
+#ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line() +theme_bw()+facet_wrap(~site)
+#by tidal height
+#ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=height ))+geom_line() +theme_bw()+facet_wrap(~site)
+
+#FIG 1A
+#by lat
+fig1a<- ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line(alpha=0.8) +theme_bw()+
+  facet_wrap(~lat, nrow=1)+ guides(color=FALSE)+labs(x = "Day of year",y="Maximum daily temperature (°C)")
 
 #------------------
 #FREQUENCY
@@ -178,22 +206,23 @@ ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line() +the
 fseq= exp(seq(log(0.001), log(1), length.out = 400))
 
 #need to incorporate within site variation
-te.dat= te.max[which(te.max$site=="SD" & te.max$subsite=="2"),]
-
+#te.dat= te.max[which(te.max$site=="SD" & te.max$subsite=="2"),]
 #te.max.lomb <- spec_lomb_phase(te.dat$MaxTemp_C, te.dat$doy, freq=seq(0,1,0.01))
-te.max.lomb <- spec_lomb_phase(te.dat$MaxTemp_C, te.dat$j, freq=fseq)
+#te.max.lomb <- spec_lomb_phase(te.dat$MaxTemp_C, te.dat$j, freq=fseq)
 
 #power series by site and subsite
 #te.lomb = te.max %>% group_by(site, subsite) %>% summarise( freq=spec_lomb_phase(te.max$MaxTemp_C, te.max$j, freq=fseq)  )
 
-sites= levels(te.max$site)
-subsites=  levels(te.max$subsite)
+#use subset data, te.max2
+
+sites= c("SD","BB","PD") #levels(te.max2$site)
+subsites=  levels(te.max2$subsite)
 
 pow.out= array(NA, dim=c(length(sites),length(subsites),length(fseq) ) )
 
 for(site.k in 1:length(sites))
 {
-  te.dat= te.max[which(te.max$site==sites[site.k]),]
+  te.dat= te.max2[which(te.max2$site==sites[site.k]),]
   subsites1= levels(te.dat$subsite)
   
   for(subsite.k in  1:length(subsites)) {
@@ -232,29 +261,28 @@ pow= pow[order(pow$site, pow$subsite, pow$freq),]
 pow$subsite= factor(pow$subsite)
 
 #freq, amp plot
-plot(te.max.lomb$freq, te.max.lomb$cyc_range/2, type="l", log="xy")
-
-ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line() +theme_bw()+facet_wrap(~site)
 
 #add latitude
 site.dat1=  te.max %>% group_by(site) %>% summarise( lat=lat[1],zone=zone[1],tidal.height..m.=tidal.height..m.[1],substrate=substrate[1] )
 match1= match(pow$site, site.dat1$site)
 pow$lat= site.dat1$lat[match1]
 
-ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line() +theme_bw()+facet_wrap(~lat)
+fig1b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line(alpha=0.8) +theme_bw()+facet_wrap(~lat, nrow=1)
 
 #===================================================
 #Quilt plot
 
 #mean daily maximum by month
-te.month = te.max %>% group_by(site, month) %>% summarise( max=max(MaxTemp_C), mean.max=mean(MaxTemp_C), q75= quantile(MaxTemp_C, 0.75), q95= quantile(MaxTemp_C, 0.95) ) 
+te.month = te.max %>% group_by(lat, month) %>% summarise( max=max(MaxTemp_C), mean.max=mean(MaxTemp_C), q75= quantile(MaxTemp_C, 0.75), q95= quantile(MaxTemp_C, 0.95) ) 
 
-ggplot(te.month) + 
-  aes(x = month, y = site, z = mean.max, fill = mean.max) + 
+fig2<- ggplot(te.month) + 
+  aes(x = month, y = as.factor(lat), z = mean.max, fill = mean.max) + 
   geom_tile() + 
   coord_equal() +
   scale_fill_distiller(palette="Spectral", na.value="white", name="temperature (°C)") + 
-  theme_bw(base_size = 18)+xlab("month")+ylab("site")+ theme(legend.position="right")+ theme(legend.position="right")+ coord_fixed(ratio = 4)
+  theme_bw(base_size = 18)+xlab("month")+ylab("latitude")+ theme(legend.position="bottom") #+ coord_fixed(ratio = 4)
+
+#CHECK LEGEND VALUES AND ROUND LATITUDES
 
 #==================================================
 # EXTREMES
@@ -268,14 +296,14 @@ library(fExtremes) # generate gev
 
 #From PTRS Fig 5
 
-sites= levels(te.max$site)
-subsites=  levels(te.max$subsite)
+sites= c("SD","BB","PD")
+subsites=  levels(te.max2$subsite)
 
 gev.out= array(NA, dim=c(length(sites),length(subsites),13 ) )
 
 for(site.k in 1:length(sites))
 {
-  te.dat= te.max[which(te.max$site==sites[site.k]),]
+  te.dat= te.max2[which(te.max2$site==sites[site.k]),]
   subsites1= levels(te.dat$subsite)
   
   for(subsite.k in  1:length(subsites)) {
@@ -328,24 +356,16 @@ dimnames(pow.out)[[1]]<- sites
 dimnames(pow.out)[[2]]<- 1:19
 dimnames(pow.out)[[3]]<- c("gev.nllh", "gev.loc", "gev.scale", "gev.shape", "conv", "rate", "return10", "return20", "return50", "return100","pat","lat","height")
 
-#to long format crudely
-pow1= pow.out[1,,]
-pow1m= melt(pow1)
-pow1m$site= "CC"
-
-pow2= pow.out[2,,]
-pow2m= melt(pow2)
-pow2m$site= "CP"
-
-pow3= pow.out[3,,]
-pow3m= melt(pow3)
-pow3m$site= "LB"
-
-pow4= pow.out[4,,]
-pow4m= melt(pow4)
-pow4m$site= "SD"
-
-pow= rbind(pow1m, pow2m, pow3m, pow4m)
+#to long format
+for(site.k in 1:length(sites)){
+  pow1= pow.out[site.k,,]
+  pow1= na.omit(pow1)
+  pow1m= melt(pow1)
+  pow1m$site= sites[site.k]
+  
+  if(site.k==1)pow=pow1m
+  if(site.k>1)pow=rbind(pow,pow1m)
+}
 
 #--------------------
 # ADD SITE INFO
