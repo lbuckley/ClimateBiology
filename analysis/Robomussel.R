@@ -153,6 +153,9 @@ setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\ICBClimBio\\")
 saveRDS(te.max, "tedat.rds")
 te.max <- readRDS("tedat.rds")
 
+#Fix duplicate CP in WA
+te.max[which(te.max$lat==48.45135),"site"]<-"CPWA"
+
 #----------------------
 #PLOTS
 
@@ -183,8 +186,6 @@ te.max1= subset(te.max2, te.max2$year==2002)
 #restrict to summer
 #May 1 through September: 121:273 
 te.max1= subset(te.max1, te.max1$doy>120 & te.max1$doy<274)
-
-#Get rid of duplicate CP in WA
 
 #ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line() +theme_bw()+facet_wrap(~site)
 #by tidal height
@@ -267,22 +268,26 @@ site.dat1=  te.max %>% group_by(site) %>% summarise( lat=lat[1],zone=zone[1],tid
 match1= match(pow$site, site.dat1$site)
 pow$lat= site.dat1$lat[match1]
 
-fig1b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line(alpha=0.8) +theme_bw()+facet_wrap(~lat, nrow=1)
+fig1b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line(alpha=0.8) +theme_classic()+facet_wrap(~lat, nrow=1)+ guides(color=FALSE)+
+ geom_vline(xintercept=-2.639, color="gray")+geom_vline(xintercept=-1.946, color="gray")+geom_vline(xintercept=-3.40, color="gray")+geom_vline(xintercept=-5.9, color="gray")
+#add lines for 1 week, 2 week, month, year
 
 #===================================================
 #Quilt plot
 
+#round lat
+te.max$lat.lab= round(te.max$lat,2)
+
 #mean daily maximum by month
-te.month = te.max %>% group_by(lat, month) %>% summarise( max=max(MaxTemp_C), mean.max=mean(MaxTemp_C), q75= quantile(MaxTemp_C, 0.75), q95= quantile(MaxTemp_C, 0.95) ) 
+te.month = te.max %>% group_by(lat, month, lat.lab) %>% summarise( max=max(MaxTemp_C), mean.max=mean(MaxTemp_C), q75= quantile(MaxTemp_C, 0.75), q95= quantile(MaxTemp_C, 0.95) ) 
 
 fig2<- ggplot(te.month) + 
-  aes(x = month, y = as.factor(lat), z = mean.max, fill = mean.max) + 
-  geom_tile() + 
-  coord_equal() +
-  scale_fill_distiller(palette="Spectral", na.value="white", name="temperature (°C)") + 
-  theme_bw(base_size = 18)+xlab("month")+ylab("latitude")+ theme(legend.position="bottom") #+ coord_fixed(ratio = 4)
-
-#CHECK LEGEND VALUES AND ROUND LATITUDES
+  aes(x = month, y = as.factor(lat.lab) ) + 
+  geom_tile(aes(fill = mean.max)) + 
+  coord_equal()+
+  scale_fill_gradientn(colours = rev(heat.colors(10)), name="temperature (°C)" )+
+  #scale_fill_distiller(palette="Spectral", na.value="white", name="max temperature (°C)") + 
+  theme_bw(base_size = 18)+xlab("month")+ylab("latitude (°)")+ theme(legend.position="bottom") #+ coord_fixed(ratio = 4)
 
 #==================================================
 # EXTREMES
@@ -296,14 +301,14 @@ library(fExtremes) # generate gev
 
 #From PTRS Fig 5
 
-sites= c("SD","BB","PD")
-subsites=  levels(te.max2$subsite)
+sites= levels(te.max$site) #c("SD","BB","PD")
+subsites=  levels(te.max$subsite)
 
 gev.out= array(NA, dim=c(length(sites),length(subsites),13 ) )
 
 for(site.k in 1:length(sites))
 {
-  te.dat= te.max2[which(te.max2$site==sites[site.k]),]
+  te.dat= te.max[which(te.max$site==sites[site.k]),]
   subsites1= levels(te.dat$subsite)
   
   for(subsite.k in  1:length(subsites)) {
@@ -311,14 +316,14 @@ for(site.k in 1:length(sites))
     
     #add site data
     gev.out[site.k, subsite.k,12]= te.dat1$lat[1]
-    gev.out[site.k, subsite.k,13]= te.dat1$height[1]
+    #gev.out[site.k, subsite.k,13]= te.dat1$height[1]
     
     #Generalized extreme value distribution
       dat1= na.omit(te.dat1$MaxTemp_C)  ##CHECK na.omit appropraite?
       
     if(length(dat1)>365){
         
-    try(mod.gev<- gev.fit(dat1, show=FALSE) ) #stationary
+    mod.gev<- try(gev.fit(dat1, show=FALSE) ) #stationary
     if(class(mod.gev)!="try-error") gev.out[site.k, subsite.k,1]<-mod.gev$nllh
     if(class(mod.gev)!="try-error") gev.out[site.k, subsite.k,2:4]<-mod.gev$mle #add another for non-stat
     if(class(mod.gev)!="try-error") gev.out[site.k, subsite.k,5]<-mod.gev$conv #add another for non-stat
@@ -327,7 +332,7 @@ for(site.k in 1:length(sites))
     thresh= 35
     
     #stationary
-    try(mod.gpd <-gpd.fit(dat1, thresh, npy=365)) #stationary 
+    mod.gpd <- try(gpd.fit(dat1, thresh, npy=365)) #stationary 
     if(class(mod.gpd)!="try-error") gev.out[site.k, subsite.k,6]<-mod.gpd$rate
     
    ## nonstationary 
@@ -336,7 +341,7 @@ for(site.k in 1:length(sites))
     #RETURN LEVELS:  MLE Fitting of GPD - package extRemes
     mpers= c(10,20,50,100)
     for(m in 1:length(mpers)){
-      try( pot.day<- fpot(dat1, threshold=35, npp=365.25, mper=mpers[m], std.err = FALSE) )
+      pot.day<- try( fpot(dat1, threshold=35, npp=365.25, mper=mpers[m], std.err = FALSE) )
     
       if(class(pot.day)!="try-error") gev.out[site.k, subsite.k,6+m]=pot.day$estimate[1]
     }
@@ -359,7 +364,7 @@ dimnames(pow.out)[[3]]<- c("gev.nllh", "gev.loc", "gev.scale", "gev.shape", "con
 #to long format
 for(site.k in 1:length(sites)){
   pow1= pow.out[site.k,,]
-  pow1= na.omit(pow1)
+  #pow1= na.omit(pow1)
   pow1m= melt(pow1)
   pow1m$site= sites[site.k]
   
@@ -382,17 +387,22 @@ pow$lat= pow.site$value[match1]
 #====================
 ## PLOT
 
+dimnames(pow.out)[[3]]<- c("gev.nllh", "gev.loc", "gev.scale", "gev.shape", "conv", "rate", "return10", "return20", "return50", "return100","pat", "lat","height")
+
+pow1= pow[pow$var %in% c("gev.loc", "gev.scale", "gev.shape", "pat", "return100"),]
+
+#get rid of return100 outlier for ploting purposes
+pow1= subset(pow1, pow1$value<300)
+
+#ggplot(data=pow1, aes(x=site, y = value, color=subsite))+geom_point()+theme_bw()+facet_wrap(~var, scales="free_y")
+fig3= ggplot(data=pow1, aes(x=as.factor(lat), y = value, color=subsite))+geom_point()+theme_bw()+facet_wrap(~var, scales="free_y")+ guides(color=FALSE)
+#as factor not latitude
+
 #setwd("C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\ExtremesPhilTrans\\figures\\")
 
 #file<-paste("AustGEV.pdf" ,sep="", collapse=NULL)
 #pdf(file,height = 8, width = 11)
 
-dimnames(pow.out)[[3]]<- c("gev.nllh", "gev.loc", "gev.scale", "gev.shape", "conv", "rate", "return10", "return20", "return50", "return100","pat", "lat","height")
-
-pow1= pow[pow$var %in% c("loc", "scale", "shape", "pat", "return100"),]
-
-#ggplot(data=pow1, aes(x=site, y = value, color=subsite))+geom_point()+theme_bw()+facet_wrap(~var, scales="free_y")
-ggplot(data=pow1, aes(x=lat, y = value, color=subsite))+geom_point()+theme_bw()+facet_wrap(~var, scales="free_y")
 
 #dev.off()
 
