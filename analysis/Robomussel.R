@@ -193,7 +193,7 @@ te.max1= subset(te.max1, te.max1$doy>120 & te.max1$doy<274)
 
 #FIG 1A
 #by lat
-fig1a<- ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line(alpha=0.8) +theme_bw()+
+fig2a<- ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line(alpha=0.8) +theme_bw()+
   facet_wrap(~lat, nrow=1)+ guides(color=FALSE)+labs(x = "Day of year",y="Maximum daily temperature (°C)")
 
 #------------------
@@ -268,9 +268,11 @@ site.dat1=  te.max %>% group_by(site) %>% summarise( lat=lat[1],zone=zone[1],tid
 match1= match(pow$site, site.dat1$site)
 pow$lat= site.dat1$lat[match1]
 
-fig1b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line(alpha=0.8) +theme_classic()+facet_wrap(~lat, nrow=1)+ guides(color=FALSE)+
- geom_vline(xintercept=-2.639, color="gray")+geom_vline(xintercept=-1.946, color="gray")+geom_vline(xintercept=-3.40, color="gray")+geom_vline(xintercept=-5.9, color="gray")
-#add lines for 1 week, 2 week, month, year
+fig2b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line(alpha=0.8) +theme_classic()+facet_wrap(~lat, nrow=1)+ guides(color=FALSE)+
+ geom_vline(xintercept=-2.639, color="gray")+geom_vline(xintercept=-1.946, color="gray")+geom_vline(xintercept=-3.40, color="gray")+geom_vline(xintercept=-5.9, color="gray")+
+labs(x = "log (frequency) (1/days)",y="log (amplitude)")
+  
+  #add lines for 1 week, 2 week, month, year
 
 #===================================================
 #Quilt plot
@@ -387,15 +389,19 @@ pow$lat= pow.site$value[match1]
 #====================
 ## PLOT
 
-dimnames(pow.out)[[3]]<- c("gev.nllh", "gev.loc", "gev.scale", "gev.shape", "conv", "rate", "return10", "return20", "return50", "return100","pat", "lat","height")
+#dimnames(pow.out)[[3]]<- c("gev.nllh", "gev.loc", "gev.scale", "gev.shape", "conv", "rate", "return10", "return20", "return50", "return100","pat", "lat","height")
 
 pow1= pow[pow$var %in% c("gev.loc", "gev.scale", "gev.shape", "pat", "return100"),]
 
 #get rid of return100 outlier for ploting purposes
 pow1= subset(pow1, pow1$value<300)
 
+#revise labels
+pow1$var <- factor(pow1$var, labels = c("location", "scale", "shape", "percent above threshold", "100 year return"))
+
 #ggplot(data=pow1, aes(x=site, y = value, color=subsite))+geom_point()+theme_bw()+facet_wrap(~var, scales="free_y")
-fig3= ggplot(data=pow1, aes(x=as.factor(lat), y = value, color=subsite))+geom_point()+theme_bw()+facet_wrap(~var, scales="free_y")+ guides(color=FALSE)
+fig4= ggplot(data=pow1, aes(x=as.factor(lat), y = value, color=subsite))+geom_point()+
+  theme_bw()+theme(axis.text.x=element_blank())+facet_wrap(~var, scales="free_y")+ guides(color=FALSE)+xlab("latitude (°C)")
 #as factor not latitude
 
 #setwd("C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\ExtremesPhilTrans\\figures\\")
