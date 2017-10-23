@@ -24,11 +24,10 @@ source("analysis\\TempcyclesAnalysis.R")
 
 #-----------------
 #Site data
-setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\ICBClimBio\\data\\")
-site.dat= read.csv("musselREADME.csv")
+site.dat= read.csv("data\\musselREADME.csv")
 
 #Load robomussel data
-te.max <- readRDS("tedat.rds")
+te.max <- readRDS("data\\tedat.rds")
 #te.max= read.csv("tedat.csv")
 
 #Fix duplicate CP in WA
