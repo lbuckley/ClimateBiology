@@ -68,10 +68,16 @@ te.max1= subset(te.max1, te.max1$doy>120 & te.max1$doy<274)
 #by tidal height
 #ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=height ))+geom_line() +theme_bw()+facet_wrap(~site)
 
+#update labels
+te.max1$labs= as.character(te.max1$site)
+te.max1$labs[which(te.max1$labs=="BB")]<- "44.8° Boiler Bay, OR"
+te.max1$labs[which(te.max1$labs=="PD")]<- "35.7° Piedras Blancas, CA"
+te.max1$labs[which(te.max1$labs=="SD")]<- "48.4° Strawberry Point, WA"
+
 #FIG 1A
 #by lat
-fig2a<- ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line(alpha=0.8) +theme_bw()+
-  facet_wrap(~lat, nrow=1)+ guides(color=FALSE)+labs(x = "Day of year",y="Maximum daily temperature (°C)")
+fig2a<- ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_line(alpha=0.8) +theme_classic()+
+  facet_wrap(~labs, nrow=1)+ guides(color=FALSE)+labs(x = "Day of year",y="Maximum daily temperature (°C)")
 
 #------------------
 #FREQUENCY
@@ -130,7 +136,13 @@ site.dat1=  te.max %>% group_by(site) %>% summarise( lat=lat[1],zone=zone[1],tid
 match1= match(pow$site, site.dat1$site)
 pow$lat= site.dat1$lat[match1]
 
-fig2b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line(alpha=0.8) +theme_classic()+facet_wrap(~lat, nrow=1)+ guides(color=FALSE)+
+#update labels
+pow$labs= as.character(pow$site)
+pow$labs[which(pow$labs=="BB")]<- "44.8° Boiler Bay, OR"
+pow$labs[which(pow$labs=="PD")]<- "35.7° Piedras Blancas, CA"
+pow$labs[which(pow$labs=="SD")]<- "48.4° Strawberry Point, WA"
+
+fig2b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line(alpha=0.8) +theme_classic()+facet_wrap(~labs, nrow=1)+ guides(color=FALSE)+
  geom_vline(xintercept=-2.639, color="gray")+geom_vline(xintercept=-1.946, color="gray")+geom_vline(xintercept=-3.40, color="gray")+geom_vline(xintercept=-5.9, color="gray")+
 labs(x = "log (frequency) (1/days)",y="log (amplitude)")
   
@@ -151,8 +163,8 @@ fig2<- ggplot(te.month) +
   coord_equal()+
   scale_fill_gradientn(colours = rev(heat.colors(10)), name="temperature (°C)" )+
   #scale_fill_distiller(palette="Spectral", na.value="white", name="max temperature (°C)") + 
-  theme_bw(base_size = 18)+xlab("month")+ylab("latitude (°)")+ theme(legend.position="bottom") #+ coord_fixed(ratio = 4)
-
+  theme_classic(base_size = 18)+xlab("month")+ylab("latitude (°)")+ theme(legend.position="bottom")+ #+ coord_fixed(ratio = 4)
+  geom_hline(yintercept = 7.5, color="white", lwd=2) 
 #==================================================
 # EXTREMES
 
@@ -261,7 +273,7 @@ pow1$var <- factor(pow1$var, labels = c("location", "scale", "shape", "percent a
 
 #ggplot(data=pow1, aes(x=site, y = value, color=subsite))+geom_point()+theme_bw()+facet_wrap(~var, scales="free_y")
 fig4= ggplot(data=pow1, aes(x=as.factor(lat), y = value, color=subsite))+geom_point()+
-  theme_bw()+theme(axis.text.x=element_blank())+facet_wrap(~var, scales="free_y")+ guides(color=FALSE)+xlab("latitude (°C)")
+  theme_bw()+theme(axis.text.x=element_blank())+facet_wrap(~var, scales="free_y")+ guides(color=FALSE)+xlab("latitude (°C)")+ylab("metric value")
 #as factor not latitude
 
 #setwd("C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\ExtremesPhilTrans\\figures\\")
