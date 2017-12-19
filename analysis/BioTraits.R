@@ -18,8 +18,8 @@ hist(traits$AmbientTemp, n=30)
 #FIG A
 #fig3a<- ggplot(traits, aes(x=AmbientTemp, color=TraitOrg)) + geom_histogram(fill="white", alpha=0.5, position="identity")+theme_bw()+ theme(legend.position="none")
 
-fig3a<- ggplot(traits, aes(x=AmbientTemp, color=TraitOrg)) +
-  geom_density()+theme_classic()+ theme(legend.position="none")+ labs(x = "Measurement temperature (°C)")
+fig3a<- ggplot(traits, aes(x=AmbientTemp, fill=TraitOrg, color=TraitOrg)) +
+  geom_density(alpha=0.1)+theme_classic()+ theme(legend.position="none")+ labs(x = "Measurement temperature (°C)")
 # , size=0.5
 
 #stats by series
@@ -31,10 +31,13 @@ hist1= hist(traits2$TempN,n=250)
 plot(hist1, xlim=c(0,10))
 
 hist(traits2$TempRange)
+#make integer
+traits3$TempN= as.integer(traits3$TempN)
 
 #FIG B
-fig3b<- ggplot(traits3, aes(x=TempN, color=TraitOrg)) +
-  geom_density()+xlim(0,12)+theme_classic()+ labs(x = "Number measurement temperatures", colour="trait type", y="")+ guides(size=FALSE)
+fig3b<- ggplot(traits3, aes(x=TempN, fill=TraitOrg, color=TraitOrg)) +
+  geom_density(alpha = 0.1, adjust=1)+theme_classic()+ labs(x = "Number of measurement temperatures", colour="trait type",fill="trait type", y="")+ guides(size=FALSE)+
+  scale_x_continuous(breaks=seq(0,12,2), lim=c(0,12))
 #aes(size=1)
 
 #Time

@@ -164,7 +164,8 @@ fig2<- ggplot(te.month) +
   scale_fill_gradientn(colours = rev(heat.colors(10)), name="temperature (°C)" )+
   #scale_fill_distiller(palette="Spectral", na.value="white", name="max temperature (°C)") + 
   theme_classic(base_size = 18)+xlab("month")+ylab("latitude (°)")+ theme(legend.position="bottom")+ #+ coord_fixed(ratio = 4)
-  geom_hline(yintercept = 7.5, color="white", lwd=2) 
+  geom_hline(yintercept = 7.5, color="white", lwd=2) +
+  scale_x_continuous(breaks=seq(1,12,2))
 #==================================================
 # EXTREMES
 
