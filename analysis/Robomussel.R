@@ -148,6 +148,15 @@ labs(x = "log (frequency) (1/days)",y="log (amplitude)")
   
   #add lines for 1 week, 2 week, month, year
 
+#save plots
+pdf("Fig2a.pdf",height = 4, width = 8)
+fig2a
+dev.off()
+
+pdf("Fig2b.pdf",height = 4, width = 8)
+fig2b
+dev.off()
+
 #===================================================
 #Quilt plot
 
@@ -166,6 +175,11 @@ fig2<- ggplot(te.month) +
   theme_classic(base_size = 18)+xlab("month")+ylab("latitude (°)")+ theme(legend.position="bottom")+ #+ coord_fixed(ratio = 4)
   geom_hline(yintercept = 7.5, color="white", lwd=2) +
   scale_x_continuous(breaks=seq(1,12,2))
+
+pdf("Fig3.pdf",height = 8, width = 8)
+fig2
+dev.off()
+
 #==================================================
 # EXTREMES
 
@@ -277,13 +291,10 @@ fig4= ggplot(data=pow1, aes(x=as.factor(lat), y = value, color=subsite))+geom_po
   theme_bw()+theme(axis.text.x=element_blank())+facet_wrap(~var, scales="free_y")+ guides(color=FALSE)+xlab("latitude (°C)")+ylab("metric value")
 #as factor not latitude
 
-#setwd("C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\ExtremesPhilTrans\\figures\\")
+pdf("Fig4.pdf",height = 4, width = 8)
+fig4
+dev.off()
 
-#file<-paste("AustGEV.pdf" ,sep="", collapse=NULL)
-#pdf(file,height = 8, width = 11)
-
-
-#dev.off()
 
 
 
