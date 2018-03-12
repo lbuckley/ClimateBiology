@@ -24,6 +24,8 @@ source("analysis\\TempcyclesAnalysis.R")
 
 #-----------------
 #Site data
+setwd( "C:\\Users\\Buckley\\Documents\\ClimateBiology\\")
+
 site.dat= read.csv("data\\musselREADME.csv")
 
 #Load robomussel data
@@ -31,7 +33,13 @@ te.max <- readRDS("data\\tedat.rds")
 #te.max= read.csv("tedat.csv")
 
 #Fix duplicate CP in WA
+te.max$lat= as.character(te.max$lat)
+te.max$site= as.character(te.max$site)
 te.max[which(te.max$lat==48.45135),"site"]<-"CPWA"
+te.max$site= as.factor(te.max$site)
+
+#drop 1 of two close sites
+te.max<- te.max[-which(te.max$site=="LB"),]
 
 #----------------------
 #PLOTS
@@ -87,7 +95,7 @@ fig2a<- ggplot(data=te.max1, aes(x=doy, y = MaxTemp_C, color=subsite ))+geom_lin
 #x: frequency (1/days)
 #y: log amplitude
 
-fseq= exp(seq(log(0.001), log(1), length.out = 400))
+fseq= exp(seq(log(0.001), log(1), length.out = 200))
 
 sites= c("SD","BB","PD") #levels(te.max2$site)
 subsites=  levels(te.max2$subsite)
@@ -142,25 +150,40 @@ pow$labs[which(pow$labs=="BB")]<- "44.8° Boiler Bay, OR"
 pow$labs[which(pow$labs=="PD")]<- "35.7° Piedras Blancas, CA"
 pow$labs[which(pow$labs=="SD")]<- "48.4° Strawberry Point, WA"
 
-fig2b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2), color=subsite))+geom_line(alpha=0.8) +theme_classic()+facet_wrap(~labs, nrow=1)+ guides(color=FALSE)+
+fig2b<- ggplot(data=pow, aes(x=log(freq), y = log(cyc_range/2) ))+geom_line(alpha=0.8, aes(color=subsite)) +theme_classic()+facet_wrap(~labs, nrow=1)+ guides(color=FALSE, size=FALSE)+
  geom_vline(xintercept=-2.639, color="gray")+geom_vline(xintercept=-1.946, color="gray")+geom_vline(xintercept=-3.40, color="gray")+geom_vline(xintercept=-5.9, color="gray")+
-labs(x = "log (frequency) (1/days)",y="log (amplitude)")
-  
+labs(x = "log (frequency) (1/days)",y="log (amplitude)")+
+  annotate(geom="text", x=-2.1, y=-5.5, label="1 week", size=3, color="black",angle=90)+ 
+  annotate(geom="text", x=-2.8, y=-5.5, label="2 weeks", size=3, color="black",angle=90)+ 
+  annotate(geom="text", x=-3.6, y=-5.5, label="1 month", size=3, color="black",angle=90)+ 
+  annotate(geom="text", x=-6.2, y=-5.5, label="1 year", size=3, color="black",angle=90)+ylim(range(-5.8,1.2))
   #add lines for 1 week, 2 week, month, year
 
-#save plots
-pdf("Fig2a.pdf",height = 4, width = 8)
-fig2a
-dev.off()
+# #save plots
+# pdf("Fig2a.pdf",height = 4, width = 8)
+# fig2a
+# dev.off()
+# 
+# pdf("Fig2b.pdf",height = 4, width = 8)
+# fig2b
+# dev.off()
 
-pdf("Fig2b.pdf",height = 4, width = 8)
-fig2b
+#----
+setwd("C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\ICBClimateBiology\\figures\\") 
+pdf("Fig2.pdf",height = 8, width = 10)
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(2,1)))
+vplayout<-function(x,y)
+  viewport(layout.pos.row=x,layout.pos.col=y)
+print(fig2a,vp=vplayout(1,1))
+print(fig2b,vp=vplayout(2,1))
 dev.off()
 
 #===================================================
 #Quilt plot
 
 #round lat
+te.max$lat= as.numeric(as.character(te.max$lat))
 te.max$lat.lab= round(te.max$lat,2)
 
 #mean daily maximum by month
@@ -191,6 +214,7 @@ library(extRemes)
 library(fExtremes) # generate gev
 
 sites= levels(te.max$site) #c("SD","BB","PD")
+sites= sites[-which(sites=="LB")]
 subsites=  levels(te.max$subsite)
 
 gev.out= array(NA, dim=c(length(sites),length(subsites),13 ) )
@@ -273,6 +297,10 @@ pow.site= pow.site[!duplicated(pow.site$ssite),]
 match1= match(pow$ssite, pow.site$ssite)
 pow$lat= pow.site$value[match1]
 
+##fix duplicate site in WA
+#te.max[which(te.max$lat==48.45135),"site"]<-"CPWA"
+
+
 #====================
 ## PLOT
 
@@ -281,19 +309,34 @@ pow$lat= pow.site$value[match1]
 pow1= pow[pow$var %in% c("gev.loc", "gev.scale", "gev.shape", "pat", "return100"),]
 
 #get rid of return100 outlier for ploting purposes
-pow1= subset(pow1, pow1$value<300)
+pow1[which(pow1$value>300),"value"]<- NA
 
 #revise labels
 pow1$var <- factor(pow1$var, labels = c("location", "scale", "shape", "percent above threshold", "100 year return"))
+#round lat
+pow1$lat= as.numeric(as.character(pow1$lat))
+pow1$lat.lab= round(pow1$lat,2)
+
+#fix value
+pow1$value= as.numeric(as.character(pow1$value))
+
+#drop NAs
+pow1= pow1[which(!is.na(pow1$lat.lab)),]
 
 #ggplot(data=pow1, aes(x=site, y = value, color=subsite))+geom_point()+theme_bw()+facet_wrap(~var, scales="free_y")
-fig4= ggplot(data=pow1, aes(x=as.factor(lat), y = value, color=subsite))+geom_point()+
-  theme_bw()+theme(axis.text.x=element_blank())+facet_wrap(~var, scales="free_y")+ guides(color=FALSE)+xlab("latitude (°C)")+ylab("metric value")
+fig4= ggplot(data=pow1, aes(x=as.factor(lat.lab), y = value, color=subsite))+geom_point()+
+  theme_bw()+facet_wrap(~var, scales="free_y")+ guides(color=FALSE)+xlab("latitude (°)")+ylab("metric value")+ theme(axis.text.x = element_text(size=8, angle=90))+
+  geom_vline(xintercept = 7.5, color="black", lwd=1) 
+
+
 #as factor not latitude
+#+theme(axis.text.x=element_blank())
 
 pdf("Fig4.pdf",height = 4, width = 8)
 fig4
 dev.off()
+
+
 
 
 
