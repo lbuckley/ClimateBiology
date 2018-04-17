@@ -8,12 +8,15 @@ library(grid)
 library(ggplot2)
 
 #BIOTRAITS ANALYSIS
-
-setwd("C:\\Users\\lbuckley\\Documents\\ClimateBiology\\data")
+setwd( "C:\\Users\\Buckley\\Documents\\ClimateBiology\\data")
+#setwd("C:\\Users\\lbuckley\\Documents\\ClimateBiology\\data")
 traits= read.csv("Delletal2013.csv")
 
 #temp distribution
 hist(traits$AmbientTemp, n=30)
+
+#make trait org ordered factor
+traits$TraitOrg= factor(traits$TraitOrg, levels=c("internal", "individual", "population", "interaction"), ordered=TRUE )
 
 #FIG A
 #fig3a<- ggplot(traits, aes(x=AmbientTemp, color=TraitOrg)) + geom_histogram(fill="white", alpha=0.5, position="identity")+theme_bw()+ theme(legend.position="none")
@@ -57,7 +60,8 @@ cbind(fig3a, fig3b)
 
 #=========================================
 
-setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\ICBClimBio\\")
+setwd( "C:\\Users\\Buckley\\Google Drive\\Buckley\\Work\\ICBClimateBiology\\figures")
+#setwd("C:\\Users\\lbuckley\\Desktop\\Fall2017\\ICBClimBio\\")
 pdf("Fig5.pdf", height=4, width=8)
 #tiff("Fig5.tiff", res = 300) #height=400, width=800, 
 
